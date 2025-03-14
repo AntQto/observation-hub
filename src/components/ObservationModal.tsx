@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { Field, Observation, observationFields, saveObservation } from '@/lib/storage';
 import { generateId, formatDate } from '@/lib/utils';
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { cn } from '@/lib/utils';
 
 interface ObservationModalProps {
