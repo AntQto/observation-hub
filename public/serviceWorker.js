@@ -1,4 +1,5 @@
-const CACHE_NAME = 'observation-app-v3';
+
+const CACHE_NAME = 'observation-app-v4';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -10,7 +11,7 @@ const urlsToCache = [
   '/icon-512.png'
 ];
 
-// Installer le service worker et mettre en cache les ressources initiales
+// Installation du service worker et mise en cache des ressources
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -19,48 +20,49 @@ self.addEventListener('install', (event) => {
         return cache.addAll(urlsToCache);
       })
   );
-  // Forcer l'activation immédiate
+  // Activation immédiate
   self.skipWaiting();
 });
 
-// Activer et nettoyer les anciens caches
+// Nettoyage des anciens caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Suppression de l\'ancien cache:', cacheName);
+            console.log('Suppression ancien cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      // Prendre le contrôle de tous les clients sans recharger
+      // Contrôle de tous les clients sans recharger
       return self.clients.claim();
     })
   );
 });
 
-// Intercepter les requêtes fetch et répondre avec des ressources en cache lorsque disponibles
+// Stratégie de cache: essayer d'abord le cache, puis le réseau
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
+        // Retourner le cache si disponible
         if (response) {
           return response;
         }
 
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest)
+        // Sinon faire une requête réseau
+        return fetch(event.request.clone())
           .then((response) => {
+            // Vérifier si la réponse est valide
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
 
+            // Mettre en cache la nouvelle réponse
             const responseToCache = response.clone();
-
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
@@ -69,6 +71,7 @@ self.addEventListener('fetch', (event) => {
             return response;
           })
           .catch(() => {
+            // Fallback pour les navigations en cas d'échec
             if (event.request.mode === 'navigate') {
               return caches.match('/');
             }
@@ -77,7 +80,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Gérer la synchronisation en arrière-plan (Background Sync API)
+// Gestion synchronisation en arrière-plan
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-observations') {
     console.log('Tentative de synchronisation en arrière-plan');
@@ -91,14 +94,14 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// Gérer les messages du client
+// Notifier les clients d'une mise à jour disponible
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
-// Intercepter les événements de notification push
+// Gestion des notifications push
 self.addEventListener('push', (event) => {
   const title = 'Observations d\'Animaux';
   const options = {
@@ -112,7 +115,7 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Intercepter les clics sur les notifications
+// Gestion des clics sur notifications
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(

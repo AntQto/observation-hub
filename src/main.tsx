@@ -4,10 +4,10 @@ import App from './App.tsx'
 import './index.css'
 import { register as registerServiceWorker, listenForInstallPrompt } from './serviceWorkerRegistration'
 
-// Register the service worker for offline support
+// Enregistrer le service worker pour le support hors ligne
 registerServiceWorker();
 
-// Listen for the install prompt event
+// Écouter l'événement d'installation mais laisser le navigateur gérer naturellement
 listenForInstallPrompt();
 
 createRoot(document.getElementById("root")!).render(<App />);

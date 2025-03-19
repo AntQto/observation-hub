@@ -3,10 +3,13 @@
   "name": "Observations d'Animaux",
   "short_name": "Observations",
   "description": "Application pour enregistrer des observations d'animaux, même hors ligne",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
       "src": "/favicon.ico",
@@ -23,6 +26,13 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot.png",
+      "sizes": "1280x720",
+      "type": "image/png"
     }
   ],
   "prefer_related_applications": false,

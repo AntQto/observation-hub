@@ -1,3 +1,4 @@
+
 export function register(): void {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -65,73 +66,39 @@ export async function requestBackgroundSync(): Promise<boolean> {
   }
 }
 
-export function isAppInstallable(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (deferredPrompt) {
-      resolve(true);
-      return;
-    }
-    
-    if (window.matchMedia('(display-mode: standalone)').matches || 
-        (window.navigator as any).standalone === true) {
-      resolve(false);
-      return;
-    }
-    
-    const isSupported = 
-      'serviceWorker' in navigator && 
-      window.isSecureContext;
-    
-    resolve(isSupported);
-  });
-}
-
+// Nous conservons ces variables et fonctions pour les composants qui en dépendent
+// mais nous ne les utilisons plus pour gérer l'installation manuellement
 let deferredPrompt: any = null;
 
 export function listenForInstallPrompt(): void {
   window.addEventListener('beforeinstallprompt', (e) => {
-    // Prevent Chrome 67 and earlier from automatically showing the prompt
-    e.preventDefault();
-    // Stash the event so it can be triggered later.
+    // Nous n'empêchons plus l'affichage de la bannière native d'installation
+    console.log('Bannière d\'installation détectée');
     deferredPrompt = e;
-    console.log('App can be installed! Prompt event saved.');
-    // Dispatch a custom event to notify components that the app is installable
-    window.dispatchEvent(new CustomEvent('appInstallable'));
   });
   
-  // Also listen for the appinstalled event
   window.addEventListener('appinstalled', () => {
-    console.log('App was installed');
+    console.log('Application installée avec succès');
     deferredPrompt = null;
   });
 }
 
 export async function promptInstall(checkOnly = false): Promise<boolean> {
   if (!deferredPrompt) {
-    console.log('No installation prompt available');
     return false;
   }
   
-  // If we're just checking, return true without prompting
   if (checkOnly) {
     return true;
   }
   
-  console.log('Showing installation prompt...');
   try {
-    // Show the prompt
     deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
     const choiceResult = await deferredPrompt.userChoice;
-    console.log('User choice result:', choiceResult.outcome);
-    
-    // Clear the saved prompt regardless of outcome
     deferredPrompt = null;
-    
     return choiceResult.outcome === 'accepted';
   } catch (error) {
-    console.error('Error showing install prompt:', error);
+    console.error('Erreur avec le prompt d\'installation:', error);
     deferredPrompt = null;
     return false;
   }

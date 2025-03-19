@@ -2,39 +2,35 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { promptInstall, listenForInstallPrompt } from '@/serviceWorkerRegistration';
+import { promptInstall } from '@/serviceWorkerRegistration';
 import { toast } from "sonner";
 
 const InstallPWA = () => {
-  const [isInstallable, setIsInstallable] = useState(false);
+  // Le composant ne sera utilisé que comme fallback
+  // si le navigateur ne propose pas automatiquement l'installation
+  const [showFallbackButton, setShowFallbackButton] = useState(false);
   
   useEffect(() => {
-    // Écouter l'événement custom appInstallable
-    const handleAppInstallable = () => {
-      setIsInstallable(true);
-    };
+    // Nous vérifions après un délai si nous avons reçu un événement beforeinstallprompt
+    // Si c'est le cas, nous affichons notre bouton comme solution de secours
+    const timer = setTimeout(() => {
+      // Vérifier si nous avons un prompt d'installation en attente
+      const checkInstallPrompt = async () => {
+        const canInstall = await promptInstall(true); // Juste vérifier, ne pas afficher
+        setShowFallbackButton(canInstall);
+      };
+      
+      checkInstallPrompt();
+    }, 5000); // Attendre 5 secondes pour voir si le navigateur affiche sa propre invite
     
-    window.addEventListener('appInstallable', handleAppInstallable);
-    
-    // Vérifier si nous avons déjà un prompt enregistré
-    const checkInstallPrompt = async () => {
-      const canInstall = await promptInstall(true); // Just check, don't prompt
-      setIsInstallable(canInstall);
-    };
-    
-    checkInstallPrompt();
-    
-    // Nettoyer à la fin
-    return () => {
-      window.removeEventListener('appInstallable', handleAppInstallable);
-    };
+    return () => clearTimeout(timer);
   }, []);
   
   const handleInstallClick = async () => {
     try {
       const installed = await promptInstall();
       if (installed) {
-        setIsInstallable(false);
+        setShowFallbackButton(false);
         toast.success("Application installée avec succès!");
       } else {
         toast.error("L'installation a été annulée ou a échoué");
@@ -45,7 +41,7 @@ const InstallPWA = () => {
     }
   };
   
-  if (!isInstallable) return null;
+  if (!showFallbackButton) return null;
   
   return (
     <Button 
