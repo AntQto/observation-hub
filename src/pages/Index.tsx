@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Plus, FileDown } from "lucide-react";
 import ObservationList from '@/components/ObservationList';
 import ObservationModal from '@/components/ObservationModal';
 import SyncStatus from '@/components/SyncStatus';
+import InstallPWA from '@/components/InstallPWA';
 import { getObservations, initializeStorage, exportObservationsAsCSV, triggerSync } from '@/lib/storage';
 import { downloadFile } from '@/lib/utils';
 import { toast } from "sonner";
@@ -125,6 +125,7 @@ const Index = () => {
           <h1 className="text-lg font-medium">Observations</h1>
           <SyncStatus />
           <div className="ml-auto flex items-center space-x-3">
+            <InstallPWA />
             <Button 
               onClick={handleExportCSV}
               variant="outline"

@@ -1,4 +1,3 @@
-
 export function register(): void {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -44,12 +43,10 @@ export function unregister(): void {
   }
 }
 
-// Vérifier si le navigateur supporte la synchronisation en arrière-plan
 export function backgroundSyncSupported(): boolean {
   return 'serviceWorker' in navigator && 'SyncManager' in window;
 }
 
-// Demander une synchronisation en arrière-plan
 export async function requestBackgroundSync(): Promise<boolean> {
   if (!backgroundSyncSupported()) {
     return false;
@@ -57,7 +54,6 @@ export async function requestBackgroundSync(): Promise<boolean> {
   
   try {
     const registration = await navigator.serviceWorker.ready;
-    // Vérifier si sync est disponible avant de l'utiliser
     if ('sync' in registration) {
       await registration.sync.register('sync-observations');
       return true;
@@ -67,4 +63,52 @@ export async function requestBackgroundSync(): Promise<boolean> {
     console.error('Erreur lors de l\'enregistrement de la synchronisation en arrière-plan:', err);
     return false;
   }
+}
+
+export function isAppInstallable(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if ('BeforeInstallPromptEvent' in window) {
+      resolve(true);
+      return;
+    }
+    
+    if (window.matchMedia('(display-mode: standalone)').matches || 
+        (window.navigator as any).standalone === true) {
+      resolve(false);
+      return;
+    }
+    
+    const isSupported = 
+      'serviceWorker' in navigator && 
+      window.isSecureContext &&
+      (navigator.userAgent.includes('Chrome') || 
+       navigator.userAgent.includes('Firefox') || 
+       (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')));
+    
+    resolve(isSupported);
+  });
+}
+
+let deferredPrompt: any = null;
+
+export function listenForInstallPrompt(): void {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    window.dispatchEvent(new CustomEvent('appInstallable'));
+  });
+}
+
+export async function promptInstall(): Promise<boolean> {
+  if (!deferredPrompt) {
+    return false;
+  }
+  
+  deferredPrompt.prompt();
+  
+  const choiceResult = await deferredPrompt.userChoice;
+  
+  deferredPrompt = null;
+  
+  return choiceResult.outcome === 'accepted';
 }

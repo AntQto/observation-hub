@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'observation-app-v2';
+const CACHE_NAME = 'observation-app-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -7,7 +6,8 @@ const urlsToCache = [
   '/src/main.tsx',
   '/src/index.css',
   '/manifest.json',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/icon-512.png'
 ];
 
 // Installer le service worker et mettre en cache les ressources initiales
@@ -19,6 +19,8 @@ self.addEventListener('install', (event) => {
         return cache.addAll(urlsToCache);
       })
   );
+  // Forcer l'activation immédiate
+  self.skipWaiting();
 });
 
 // Activer et nettoyer les anciens caches
@@ -33,6 +35,9 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
+    }).then(() => {
+      // Prendre le contrôle de tous les clients sans recharger
+      return self.clients.claim();
     })
   );
 });
@@ -42,22 +47,18 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Cache hit - retourner la réponse depuis la version en cache
         if (response) {
           return response;
         }
 
-        // Cloner la requête car c'est un flux qui ne peut être consommé qu'une fois
         const fetchRequest = event.request.clone();
 
         return fetch(fetchRequest)
           .then((response) => {
-            // Vérifier si nous avons reçu une réponse valide
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
 
-            // Cloner la réponse car c'est un flux qui ne peut être consommé qu'une fois
             const responseToCache = response.clone();
 
             caches.open(CACHE_NAME)
@@ -68,7 +69,6 @@ self.addEventListener('fetch', (event) => {
             return response;
           })
           .catch(() => {
-            // Si la requête échoue (ex. hors ligne), essayer de servir une page générique
             if (event.request.mode === 'navigate') {
               return caches.match('/');
             }
@@ -81,8 +81,6 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-observations') {
     console.log('Tentative de synchronisation en arrière-plan');
-    // Le service worker ne peut pas accéder directement au localStorage
-    // Nous allons donc envoyer un message au client pour déclencher une synchronisation
     self.clients.matchAll().then(clients => {
       clients.forEach(client => {
         client.postMessage({
@@ -98,4 +96,26 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Intercepter les événements de notification push
+self.addEventListener('push', (event) => {
+  const title = 'Observations d\'Animaux';
+  const options = {
+    body: event.data?.text() || 'Nouvelle notification',
+    icon: '/apple-touch-icon.png',
+    badge: '/favicon.ico'
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// Intercepter les clics sur les notifications
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow('/')
+  );
 });
