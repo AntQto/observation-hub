@@ -1,9 +1,8 @@
-
 export interface Field {
   id: string;
   name: string;
   type: 'text' | 'number' | 'date' | 'select';
-  options?: string[]; // For select fields
+  options?: string[]; // Pour les champs de sélection
 }
 
 export interface Observation {
@@ -11,72 +10,95 @@ export interface Observation {
   createdAt: string;
   updatedAt: string;
   fields: Record<string, any>;
+  synced?: boolean; // Indicateur si l'observation est synchronisée
 }
 
-// Predefined observation fields - in a real app you might want to make these configurable
+// Champs d'observation prédéfinis - dans une vraie application, vous pourriez les rendre configurables
 export const observationFields: Field[] = [
-  { id: 'title', name: 'Title', type: 'text' },
+  { id: 'title', name: 'Titre', type: 'text' },
   { id: 'date', name: 'Date', type: 'date' },
-  { id: 'location', name: 'Location', type: 'text' },
-  { id: 'category', name: 'Category', type: 'select', options: ['Flora', 'Fauna', 'Weather', 'Other'] },
+  { id: 'location', name: 'Lieu', type: 'text' },
+  { id: 'species', name: 'Espèce', type: 'text' },
+  { id: 'category', name: 'Catégorie', type: 'select', options: ['Mammifère', 'Oiseau', 'Reptile', 'Amphibien', 'Poisson', 'Insecte', 'Autre'] },
+  { id: 'quantity', name: 'Quantité', type: 'number' },
+  { id: 'behavior', name: 'Comportement', type: 'text' },
   { id: 'description', name: 'Description', type: 'text' },
-  { id: 'quantity', name: 'Quantity', type: 'number' },
   { id: 'notes', name: 'Notes', type: 'text' }
 ];
 
-// LocalStorage keys
+// Clés LocalStorage
 const OBSERVATIONS_KEY = 'observations';
 
-// Initial data
+import { addToSyncQueue, initSyncQueue, synchronizeQueue } from './syncService';
+
+// Initialiser le stockage
 export function initializeStorage(): void {
   if (!localStorage.getItem(OBSERVATIONS_KEY)) {
     localStorage.setItem(OBSERVATIONS_KEY, JSON.stringify([]));
   }
+  // Initialiser la file d'attente de synchronisation
+  initSyncQueue();
 }
 
-// Save an observation
+// Enregistrer une observation
 export function saveObservation(observation: Observation): void {
   const observations = getObservations();
   const existingIndex = observations.findIndex(o => o.id === observation.id);
   
   if (existingIndex >= 0) {
-    // Update existing observation
+    // Mettre à jour l'observation existante
     observations[existingIndex] = {
       ...observation,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      synced: navigator.onLine
     };
+    
+    // Ajouter à la file de synchronisation si nous sommes hors ligne
+    addToSyncQueue(observations[existingIndex], 'update');
   } else {
-    // Add new observation
-    observations.push({
+    // Ajouter une nouvelle observation
+    const newObservation = {
       ...observation,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+      updatedAt: new Date().toISOString(),
+      synced: navigator.onLine
+    };
+    observations.push(newObservation);
+    
+    // Ajouter à la file de synchronisation si nous sommes hors ligne
+    addToSyncQueue(newObservation, 'create');
   }
   
   localStorage.setItem(OBSERVATIONS_KEY, JSON.stringify(observations));
 }
 
-// Get all observations
+// Récupérer toutes les observations
 export function getObservations(): Observation[] {
   const data = localStorage.getItem(OBSERVATIONS_KEY);
   return data ? JSON.parse(data) : [];
 }
 
-// Get a single observation by ID
+// Récupérer une seule observation par ID
 export function getObservationById(id: string): Observation | undefined {
   const observations = getObservations();
   return observations.find(o => o.id === id);
 }
 
-// Delete an observation
+// Supprimer une observation
 export function deleteObservation(id: string): void {
   const observations = getObservations();
+  const observationToDelete = observations.find(o => o.id === id);
+  
+  if (observationToDelete) {
+    // Ajouter à la file de synchronisation avant suppression locale
+    addToSyncQueue(observationToDelete, 'delete');
+  }
+  
   const updatedObservations = observations.filter(o => o.id !== id);
   localStorage.setItem(OBSERVATIONS_KEY, JSON.stringify(updatedObservations));
 }
 
-// Export observations as CSV
+// Exporter les observations au format CSV
 export function exportObservationsAsCSV(): string {
   const observations = getObservations();
   
@@ -123,4 +145,11 @@ export function exportObservationsAsCSV(): string {
     // Wrap in quotes if cell contains commas, quotes, or newlines
     return /[",\n\r]/.test(escaped) ? `"${escaped}"` : escaped;
   }).join(',')).join('\n');
+}
+
+// Déclencher une synchronisation manuelle
+export function triggerSync(): void {
+  if (navigator.onLine) {
+    synchronizeQueue();
+  }
 }

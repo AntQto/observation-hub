@@ -7,7 +7,7 @@ export function register(): void {
       navigator.serviceWorker
         .register(swUrl)
         .then(registration => {
-          console.log('Service Worker registered: ', registration);
+          console.log('Service Worker enregistré: ', registration);
           
           registration.onupdatefound = () => {
             const installingWorker = registration.installing;
@@ -17,18 +17,16 @@ export function register(): void {
             installingWorker.onstatechange = () => {
               if (installingWorker.state === 'installed') {
                 if (navigator.serviceWorker.controller) {
-                  // New content is available; we can notify the user
-                  console.log('New content is available and will be used when all tabs for this page are closed.');
+                  console.log('Un nouveau contenu est disponible et sera utilisé lorsque toutes les fenêtres de cette page seront fermées.');
                 } else {
-                  // Content is cached for offline use
-                  console.log('Content is cached for offline use.');
+                  console.log('Le contenu est mis en cache pour une utilisation hors ligne.');
                 }
               }
             };
           };
         })
         .catch(error => {
-          console.error('Error during service worker registration:', error);
+          console.error('Erreur lors de l\'enregistrement du service worker:', error);
         });
     });
   }
@@ -43,5 +41,26 @@ export function unregister(): void {
       .catch(error => {
         console.error(error.message);
       });
+  }
+}
+
+// Vérifier si le navigateur supporte la synchronisation en arrière-plan
+export function backgroundSyncSupported(): boolean {
+  return 'serviceWorker' in navigator && 'SyncManager' in window;
+}
+
+// Demander une synchronisation en arrière-plan
+export async function requestBackgroundSync(): Promise<boolean> {
+  if (!backgroundSyncSupported()) {
+    return false;
+  }
+  
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.sync.register('sync-observations');
+    return true;
+  } catch (err) {
+    console.error('Erreur lors de l\'enregistrement de la synchronisation en arrière-plan:', err);
+    return false;
   }
 }

@@ -1,30 +1,34 @@
 
-const CACHE_NAME = 'observation-app-v1';
+const CACHE_NAME = 'observation-app-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/favicon.ico',
   '/src/main.tsx',
-  '/src/index.css'
+  '/src/index.css',
+  '/manifest.json',
+  '/apple-touch-icon.png'
 ];
 
-// Install the service worker and cache initial assets
+// Installer le service worker et mettre en cache les ressources initiales
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
+        console.log('Mise en cache des ressources statiques');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
-// Activate and clean up old caches
+// Activer et nettoyer les anciens caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('Suppression de l\'ancien cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -33,39 +37,63 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Intercept fetch requests and respond with cached assets when available
+// Intercepter les requêtes fetch et répondre avec des ressources en cache lorsque disponibles
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Cache hit - return the response from the cached version
+        // Cache hit - retourner la réponse depuis la version en cache
         if (response) {
           return response;
         }
 
-        // Clone the request because it's a stream that can only be consumed once
+        // Cloner la requête car c'est un flux qui ne peut être consommé qu'une fois
         const fetchRequest = event.request.clone();
 
-        return fetch(fetchRequest).then((response) => {
-          // Check if we received a valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+        return fetch(fetchRequest)
+          .then((response) => {
+            // Vérifier si nous avons reçu une réponse valide
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // Cloner la réponse car c'est un flux qui ne peut être consommé qu'une fois
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+
             return response;
-          }
-
-          // Clone the response because it's a stream that can only be consumed once
-          const responseToCache = response.clone();
-
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+          })
+          .catch(() => {
+            // Si la requête échoue (ex. hors ligne), essayer de servir une page générique
+            if (event.request.mode === 'navigate') {
+              return caches.match('/');
+            }
           });
-
-          return response;
-        });
       })
   );
 });
 
-// Handle messages from the client
+// Gérer la synchronisation en arrière-plan (Background Sync API)
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-observations') {
+    console.log('Tentative de synchronisation en arrière-plan');
+    // Le service worker ne peut pas accéder directement au localStorage
+    // Nous allons donc envoyer un message au client pour déclencher une synchronisation
+    self.clients.matchAll().then(clients => {
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'TRIGGER_SYNC'
+        });
+      });
+    });
+  }
+});
+
+// Gérer les messages du client
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
