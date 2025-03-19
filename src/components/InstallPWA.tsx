@@ -2,29 +2,27 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { isAppInstallable, promptInstall, listenForInstallPrompt } from '@/serviceWorkerRegistration';
+import { promptInstall, listenForInstallPrompt } from '@/serviceWorkerRegistration';
+import { toast } from "sonner";
 
 const InstallPWA = () => {
   const [isInstallable, setIsInstallable] = useState(false);
   
   useEffect(() => {
-    // Vérifier si l'app est installable au montage du composant
-    const checkInstallable = async () => {
-      const installable = await isAppInstallable();
-      setIsInstallable(installable);
-    };
-    
-    checkInstallable();
-    
-    // Écouter l'événement beforeinstallprompt
-    listenForInstallPrompt();
-    
     // Écouter l'événement custom appInstallable
     const handleAppInstallable = () => {
       setIsInstallable(true);
     };
     
     window.addEventListener('appInstallable', handleAppInstallable);
+    
+    // Vérifier si nous avons déjà un prompt enregistré
+    const checkInstallPrompt = async () => {
+      const canInstall = await promptInstall(true); // Just check, don't prompt
+      setIsInstallable(canInstall);
+    };
+    
+    checkInstallPrompt();
     
     // Nettoyer à la fin
     return () => {
@@ -33,9 +31,17 @@ const InstallPWA = () => {
   }, []);
   
   const handleInstallClick = async () => {
-    const installed = await promptInstall();
-    if (installed) {
-      setIsInstallable(false);
+    try {
+      const installed = await promptInstall();
+      if (installed) {
+        setIsInstallable(false);
+        toast.success("Application installée avec succès!");
+      } else {
+        toast.error("L'installation a été annulée ou a échoué");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'installation:", error);
+      toast.error("Erreur lors de l'installation");
     }
   };
   
