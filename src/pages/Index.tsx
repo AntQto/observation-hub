@@ -8,6 +8,7 @@ import SyncStatus from '@/components/SyncStatus';
 import { getObservations, initializeStorage, exportObservationsAsCSV, triggerSync } from '@/lib/storage';
 import { downloadFile } from '@/lib/utils';
 import { toast } from "sonner";
+import { backgroundSyncSupported } from '@/serviceWorkerRegistration';
 
 const Index = () => {
   const [observations, setObservations] = useState([]);
@@ -82,16 +83,22 @@ const Index = () => {
   // Tenter une synchronisation en arrière-plan lorsque nous sommes en ligne
   useEffect(() => {
     const handleOnline = () => {
-      if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      if (backgroundSyncSupported()) {
         navigator.serviceWorker.ready
           .then(registration => {
-            // Essayer d'enregistrer une tâche de synchronisation en arrière-plan
-            registration.sync.register('sync-observations')
-              .catch(err => {
-                console.log('Échec de l\'enregistrement de la synchronisation en arrière-plan:', err);
-                // Synchronisation manuelle si échouée
-                triggerSync();
-              });
+            // Vérifier si sync est disponible avant de l'utiliser
+            if ('sync' in registration) {
+              // Essayer d'enregistrer une tâche de synchronisation en arrière-plan
+              registration.sync.register('sync-observations')
+                .catch(err => {
+                  console.log('Échec de l\'enregistrement de la synchronisation en arrière-plan:', err);
+                  // Synchronisation manuelle si échouée
+                  triggerSync();
+                });
+            } else {
+              // Fallback si sync n'est pas disponible
+              triggerSync();
+            }
           });
       } else {
         // Fallback si Background Sync n'est pas supporté

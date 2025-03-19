@@ -57,8 +57,12 @@ export async function requestBackgroundSync(): Promise<boolean> {
   
   try {
     const registration = await navigator.serviceWorker.ready;
-    await registration.sync.register('sync-observations');
-    return true;
+    // Vérifier si sync est disponible avant de l'utiliser
+    if ('sync' in registration) {
+      await registration.sync.register('sync-observations');
+      return true;
+    }
+    return false;
   } catch (err) {
     console.error('Erreur lors de l\'enregistrement de la synchronisation en arrière-plan:', err);
     return false;
