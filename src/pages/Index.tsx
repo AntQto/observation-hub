@@ -69,7 +69,7 @@ const Index = () => {
     }
   };
 
-  const handleNewModalOpenChange = (open: boolean) => {
+  const handleNewModalOpenChange = (open) => {
     setIsNewModalOpen(open);
     if (!open) {
       loadObservations();
@@ -81,7 +81,7 @@ const Index = () => {
     setSelectedObservation(observation);
   };
 
-  const handleEditModalClose = (open: boolean) => {
+  const handleEditModalClose = (open) => {
     if (!open) {
       setSelectedObservation(null);
       loadObservations();
