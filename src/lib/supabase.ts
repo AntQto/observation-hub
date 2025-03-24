@@ -1,20 +1,6 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import type { Observation } from './storage';
-
-// Créer un client Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Vérifier si les clés d'API sont définies
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Les variables d\'environnement Supabase ne sont pas définies');
-}
-
-export const supabase = createClient(
-  supabaseUrl || '',
-  supabaseKey || ''
-);
 
 // Fonction pour initialiser la table des observations si nécessaire
 export async function initSupabase() {
@@ -44,11 +30,11 @@ export async function fetchObservations(): Promise<Observation[]> {
     return [];
   }
 
-  return data.map(item => ({
+  return data ? data.map(item => ({
     id: item.id,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
-    fields: JSON.parse(item.fields || '{}'),
+    fields: typeof item.fields === 'string' ? JSON.parse(item.fields) : item.fields,
     location: item.location ? {
       latitude: item.location.latitude,
       longitude: item.location.longitude,
@@ -56,7 +42,7 @@ export async function fetchObservations(): Promise<Observation[]> {
     } : undefined,
     deviceTimestamp: item.deviceTimestamp,
     synced: true
-  }));
+  })) : [];
 }
 
 // Ajouter ou mettre à jour une observation dans Supabase
@@ -66,7 +52,7 @@ export async function saveObservationToSupabase(observation: Observation): Promi
     id: observation.id,
     createdAt: observation.createdAt,
     updatedAt: observation.updatedAt,
-    fields: JSON.stringify(observation.fields),
+    fields: typeof observation.fields === 'object' ? JSON.stringify(observation.fields) : observation.fields,
     location: observation.location,
     deviceTimestamp: observation.deviceTimestamp
   };
