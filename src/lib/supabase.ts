@@ -31,13 +31,16 @@ export async function fetchObservations(): Promise<Observation[]> {
   }
 
   return data ? data.map(item => {
-    // Correctly handle the location object
-    let locationObj;
-    if (item.location && typeof item.location === 'object') {
+    // Correctly handle the location object with proper type checking
+    let locationObj = null;
+    
+    if (item.location && typeof item.location === 'object' && !Array.isArray(item.location)) {
+      const locObj = item.location as Record<string, unknown>;
+      
       locationObj = {
-        latitude: typeof item.location.latitude === 'number' ? item.location.latitude : null,
-        longitude: typeof item.location.longitude === 'number' ? item.location.longitude : null,
-        accuracy: typeof item.location.accuracy === 'number' ? item.location.accuracy : null
+        latitude: typeof locObj.latitude === 'number' ? locObj.latitude : null,
+        longitude: typeof locObj.longitude === 'number' ? locObj.longitude : null,
+        accuracy: typeof locObj.accuracy === 'number' ? locObj.accuracy : null
       };
     }
 
