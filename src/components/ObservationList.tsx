@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, ChevronLeft, ChevronRight, CloudOff } from "lucide-react";
+import { Pencil, Trash2, ChevronLeft, ChevronRight, CloudOff, Map } from "lucide-react";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { Observation, deleteObservation, observationFields } from '@/lib/storage';
 import { formatDate, paginateItems, getPageCount } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface ObservationListProps {
   observations: Observation[];
@@ -70,6 +71,17 @@ const ObservationList: React.FC<ObservationListProps> = ({ observations, onEdit 
     }
   };
   
+  const formatDeviceTime = (timestamp?: number) => {
+    if (!timestamp) return null;
+    return format(new Date(timestamp), 'dd/MM/yyyy HH:mm:ss');
+  };
+  
+  const openLocationInMaps = (latitude: number | null, longitude: number | null) => {
+    if (latitude && longitude) {
+      window.open(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`, '_blank');
+    }
+  };
+  
   if (observations.length === 0) {
     return (
       <div className="text-center py-10">
@@ -108,6 +120,24 @@ const ObservationList: React.FC<ObservationListProps> = ({ observations, onEdit 
                     {observation.fields.date && (
                       <div className="mb-1">{formatDate(observation.fields.date)}</div>
                     )}
+                    {observation.deviceTimestamp && (
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Horodatage: {formatDeviceTime(observation.deviceTimestamp)}
+                      </div>
+                    )}
+                    
+                    {observation.location && observation.location.latitude && observation.location.longitude && (
+                      <div className="flex items-center mb-2 text-xs">
+                        <button
+                          onClick={() => openLocationInMaps(observation.location?.latitude || null, observation.location?.longitude || null)}
+                          className="flex items-center text-primary hover:underline"
+                        >
+                          <Map className="h-3 w-3 mr-1" />
+                          Coordonnées: {observation.location.latitude.toFixed(6)}, {observation.location.longitude.toFixed(6)}
+                        </button>
+                      </div>
+                    )}
+                    
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                       {observationFields
                         .filter(field => field.id !== 'title' && field.id !== 'date' && field.id !== 'description' && field.id !== 'notes')

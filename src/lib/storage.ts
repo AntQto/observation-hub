@@ -1,3 +1,4 @@
+
 export interface Field {
   id: string;
   name: string;
@@ -10,6 +11,12 @@ export interface Observation {
   createdAt: string;
   updatedAt: string;
   fields: Record<string, any>;
+  location?: {
+    latitude: number | null;
+    longitude: number | null;
+    accuracy: number | null;
+  };
+  deviceTimestamp?: number;
   synced?: boolean; // Indicateur si l'observation est synchronisée
 }
 

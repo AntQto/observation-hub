@@ -15,11 +15,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, MapPin } from "lucide-react";
 import { Field, Observation, observationFields, saveObservation } from '@/lib/storage';
 import { generateId, formatDate } from '@/lib/utils';
 import { toast } from "sonner";
 import { cn } from '@/lib/utils';
+import { useGeolocation } from '@/hooks/useGeolocation';
 
 interface ObservationModalProps {
   open: boolean;
@@ -35,6 +36,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [date, setDate] = useState<Date | undefined>(undefined);
   const isEditMode = !!observation;
+  const geolocation = useGeolocation();
 
   // Initialize form data when the modal opens or observation changes
   useEffect(() => {
@@ -76,7 +78,14 @@ const ObservationModal: React.FC<ObservationModalProps> = ({
       id: observation?.id || generateId(),
       createdAt: observation?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      fields: formData
+      fields: formData,
+      // Ajouter les coordonnées GPS et l'horodatage de l'appareil
+      location: !isEditMode ? {
+        latitude: geolocation.coords.latitude,
+        longitude: geolocation.coords.longitude,
+        accuracy: geolocation.coords.accuracy,
+      } : observation?.location,
+      deviceTimestamp: !isEditMode ? Date.now() : observation?.deviceTimestamp
     };
     
     saveObservation(newObservation);
@@ -94,6 +103,22 @@ const ObservationModal: React.FC<ObservationModalProps> = ({
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
+          {!isEditMode && (
+            <div className="bg-primary/10 p-3 rounded-md flex items-center gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-primary" />
+              {geolocation.loading ? (
+                <span>Récupération de la position...</span>
+              ) : geolocation.error ? (
+                <span className="text-destructive">{geolocation.error}</span>
+              ) : (
+                <span>
+                  Position: {geolocation.coords.latitude?.toFixed(6)}, {geolocation.coords.longitude?.toFixed(6)} 
+                  {geolocation.coords.accuracy && <span className="text-xs text-muted-foreground ml-1">(précision: ±{Math.round(geolocation.coords.accuracy)}m)</span>}
+                </span>
+              )}
+            </div>
+          )}
+          
           {observationFields.map((field) => (
             <div key={field.id} className="grid gap-2">
               <Label htmlFor={field.id} className="text-sm font-medium">
