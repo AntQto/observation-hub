@@ -23,7 +23,7 @@ export async function fetchObservations(): Promise<Observation[]> {
   const { data, error } = await supabase
     .from('observations')
     .select('*')
-    .order('createdAt', { ascending: false });
+    .order('createdat', { ascending: false });
 
   if (error) {
     console.error('Erreur lors de la récupération des observations:', error);
@@ -32,15 +32,15 @@ export async function fetchObservations(): Promise<Observation[]> {
 
   return data ? data.map(item => ({
     id: item.id,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
+    createdAt: item.createdat,
+    updatedAt: item.updatedat,
     fields: typeof item.fields === 'string' ? JSON.parse(item.fields) : item.fields,
     location: item.location ? {
       latitude: item.location.latitude,
       longitude: item.location.longitude,
       accuracy: item.location.accuracy
     } : undefined,
-    deviceTimestamp: item.deviceTimestamp,
+    deviceTimestamp: item.devicetimestamp,
     synced: true
   })) : [];
 }
@@ -50,11 +50,11 @@ export async function saveObservationToSupabase(observation: Observation): Promi
   // Préparer les données pour Supabase
   const supabaseData = {
     id: observation.id,
-    createdAt: observation.createdAt,
-    updatedAt: observation.updatedAt,
+    createdat: observation.createdAt,
+    updatedat: observation.updatedAt,
     fields: typeof observation.fields === 'object' ? JSON.stringify(observation.fields) : observation.fields,
     location: observation.location,
-    deviceTimestamp: observation.deviceTimestamp
+    devicetimestamp: observation.deviceTimestamp
   };
 
   // Vérifier si l'observation existe déjà
