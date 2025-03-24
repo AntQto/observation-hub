@@ -30,19 +30,27 @@ export async function fetchObservations(): Promise<Observation[]> {
     return [];
   }
 
-  return data ? data.map(item => ({
-    id: item.id,
-    createdAt: item.createdat,
-    updatedAt: item.updatedat,
-    fields: typeof item.fields === 'string' ? JSON.parse(item.fields) : item.fields,
-    location: item.location ? {
-      latitude: item.location.latitude,
-      longitude: item.location.longitude,
-      accuracy: item.location.accuracy
-    } : undefined,
-    deviceTimestamp: item.devicetimestamp,
-    synced: true
-  })) : [];
+  return data ? data.map(item => {
+    // Correctly handle the location object
+    let locationObj;
+    if (item.location && typeof item.location === 'object') {
+      locationObj = {
+        latitude: typeof item.location.latitude === 'number' ? item.location.latitude : null,
+        longitude: typeof item.location.longitude === 'number' ? item.location.longitude : null,
+        accuracy: typeof item.location.accuracy === 'number' ? item.location.accuracy : null
+      };
+    }
+
+    return {
+      id: item.id,
+      createdAt: item.createdat,
+      updatedAt: item.updatedat,
+      fields: typeof item.fields === 'string' ? JSON.parse(item.fields) : item.fields,
+      location: locationObj,
+      deviceTimestamp: item.devicetimestamp,
+      synced: true
+    };
+  }) : [];
 }
 
 // Ajouter ou mettre à jour une observation dans Supabase
