@@ -37,30 +37,84 @@ export const observationFields: Field[] = [
 const OBSERVATIONS_KEY = 'observations';
 
 import { addToSyncQueue, initSyncQueue, synchronizeQueue } from './syncService';
+import { initSupabase, fetchObservations as fetchSupabaseObservations } from './supabase';
+
+// État d'initialisation de Supabase
+let supabaseInitialized = false;
 
 // Initialiser le stockage
-export function initializeStorage(): void {
+export async function initializeStorage(): Promise<void> {
   if (!localStorage.getItem(OBSERVATIONS_KEY)) {
     localStorage.setItem(OBSERVATIONS_KEY, JSON.stringify([]));
   }
+  
   // Initialiser la file d'attente de synchronisation
   initSyncQueue();
+  
+  // Initialiser Supabase
+  supabaseInitialized = await initSupabase();
+  
+  // Si Supabase est initialisé et que nous sommes en ligne, synchroniser les données
+  if (supabaseInitialized && navigator.onLine) {
+    try {
+      // Récupérer les observations depuis Supabase
+      const remoteObservations = await fetchSupabaseObservations();
+      
+      // Si nous avons des observations à distance, les fusionner avec les locales
+      if (remoteObservations.length > 0) {
+        const localObservations = getLocalObservations();
+        
+        // Créer un Map des observations locales pour faciliter la fusion
+        const localObsMap = new Map(localObservations.map(obs => [obs.id, obs]));
+        
+        // Fusionner les observations distantes
+        remoteObservations.forEach(remoteObs => {
+          const localObs = localObsMap.get(remoteObs.id);
+          
+          // Si l'observation locale existe, comparer les dates de mise à jour
+          if (localObs) {
+            const remoteDate = new Date(remoteObs.updatedAt).getTime();
+            const localDate = new Date(localObs.updatedAt).getTime();
+            
+            // Utiliser la plus récente
+            if (remoteDate > localDate) {
+              localObsMap.set(remoteObs.id, { ...remoteObs, synced: true });
+            }
+          } else {
+            // Si l'observation n'existe pas localement, l'ajouter
+            localObsMap.set(remoteObs.id, { ...remoteObs, synced: true });
+          }
+        });
+        
+        // Mettre à jour le stockage local avec les observations fusionnées
+        localStorage.setItem(OBSERVATIONS_KEY, JSON.stringify(Array.from(localObsMap.values())));
+      }
+      
+      // Synchroniser les observations locales non synchronisées
+      synchronizeQueue();
+    } catch (error) {
+      console.error('Erreur lors de l\'initialisation du stockage avec Supabase:', error);
+    }
+  }
 }
 
 // Enregistrer une observation
 export function saveObservation(observation: Observation): void {
-  const observations = getObservations();
+  const observations = getLocalObservations();
   const existingIndex = observations.findIndex(o => o.id === observation.id);
+  
+  // Vérifier si nous sommes en ligne et si Supabase est initialisé
+  const isOnlineAndInitialized = navigator.onLine && supabaseInitialized;
   
   if (existingIndex >= 0) {
     // Mettre à jour l'observation existante
     observations[existingIndex] = {
       ...observation,
       updatedAt: new Date().toISOString(),
-      synced: navigator.onLine
+      synced: isOnlineAndInitialized
     };
     
-    // Ajouter à la file de synchronisation si nous sommes hors ligne
+    // Ajouter à la file de synchronisation
     addToSyncQueue(observations[existingIndex], 'update');
   } else {
     // Ajouter une nouvelle observation
@@ -68,32 +122,67 @@ export function saveObservation(observation: Observation): void {
       ...observation,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      synced: navigator.onLine
+      synced: isOnlineAndInitialized
     };
     observations.push(newObservation);
     
-    // Ajouter à la file de synchronisation si nous sommes hors ligne
+    // Ajouter à la file de synchronisation
     addToSyncQueue(newObservation, 'create');
   }
   
   localStorage.setItem(OBSERVATIONS_KEY, JSON.stringify(observations));
 }
 
-// Récupérer toutes les observations
-export function getObservations(): Observation[] {
+// Récupérer toutes les observations locales
+function getLocalObservations(): Observation[] {
   const data = localStorage.getItem(OBSERVATIONS_KEY);
   return data ? JSON.parse(data) : [];
 }
 
+// Récupérer toutes les observations (locales ou distantes selon la disponibilité)
+export async function getObservations(): Promise<Observation[]> {
+  // Si nous sommes en ligne et que Supabase est initialisé, essayer de récupérer les données à distance
+  if (navigator.onLine && supabaseInitialized) {
+    try {
+      const remoteObservations = await fetchSupabaseObservations();
+      
+      // Si nous avons des observations à distance, les renvoyer
+      if (remoteObservations.length > 0) {
+        return remoteObservations;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des observations depuis Supabase:', error);
+    }
+  }
+  
+  // En cas d'échec ou hors ligne, renvoyer les observations locales
+  return getLocalObservations();
+}
+
 // Récupérer une seule observation par ID
-export function getObservationById(id: string): Observation | undefined {
-  const observations = getObservations();
+export async function getObservationById(id: string): Promise<Observation | undefined> {
+  // Si nous sommes en ligne et que Supabase est initialisé, essayer de récupérer depuis la base de données
+  if (navigator.onLine && supabaseInitialized) {
+    try {
+      const observations = await fetchSupabaseObservations();
+      const observation = observations.find(o => o.id === id);
+      
+      if (observation) {
+        return observation;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'observation depuis Supabase:', error);
+    }
+  }
+  
+  // En cas d'échec ou hors ligne, renvoyer l'observation locale
+  const observations = getLocalObservations();
   return observations.find(o => o.id === id);
 }
 
 // Supprimer une observation
 export function deleteObservation(id: string): void {
-  const observations = getObservations();
+  const observations = getLocalObservations();
   const observationToDelete = observations.find(o => o.id === id);
   
   if (observationToDelete) {
@@ -107,7 +196,7 @@ export function deleteObservation(id: string): void {
 
 // Exporter les observations au format CSV
 export function exportObservationsAsCSV(): string {
-  const observations = getObservations();
+  const observations = getLocalObservations();
   
   if (observations.length === 0) {
     return '';
@@ -155,8 +244,8 @@ export function exportObservationsAsCSV(): string {
 }
 
 // Déclencher une synchronisation manuelle
-export function triggerSync(): void {
-  if (navigator.onLine) {
-    synchronizeQueue();
+export async function triggerSync(): Promise<void> {
+  if (navigator.onLine && supabaseInitialized) {
+    await synchronizeQueue();
   }
 }

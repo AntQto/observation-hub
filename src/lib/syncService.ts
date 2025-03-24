@@ -1,5 +1,6 @@
 
 import { Observation } from './storage';
+import { saveObservationToSupabase, deleteObservationFromSupabase } from './supabase';
 
 // Queue de synchronisation stockée localement
 const SYNC_QUEUE_KEY = 'sync_queue';
@@ -92,28 +93,17 @@ function removeFromQueue(id: string): void {
   localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(updatedQueue));
 }
 
-// Fonction pour synchroniser les données avec le serveur
+// Fonction pour synchroniser une observation avec Supabase
 async function synchronizeWithServer(item: SyncQueueItem): Promise<boolean> {
-  // Cette fonction sera implémentée pour communiquer avec votre API backend
-  // Pour l'instant, simulons que la synchronisation réussit
-  
   try {
-    // Simuler une requête réseau (remplacer par votre vrai API plus tard)
     console.log(`Synchronisation de l'observation ${item.id} (${item.action})`);
     
-    // Simuler un délai réseau
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // En cas de déploiement réel, vous ajouteriez un appel fetch() ici
-    // par exemple:
-    // const response = await fetch('/api/observations', {
-    //   method: item.action === 'delete' ? 'DELETE' : (item.action === 'update' ? 'PUT' : 'POST'),
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(item.observation)
-    // });
-    // return response.ok;
-    
-    return true; // Simuler une synchronisation réussie
+    if (item.action === 'delete') {
+      return await deleteObservationFromSupabase(item.id);
+    } else {
+      // Pour les créations et les mises à jour
+      return await saveObservationToSupabase(item.observation);
+    }
   } catch (error) {
     console.error("Erreur de synchronisation:", error);
     return false;

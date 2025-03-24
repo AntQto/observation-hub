@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Plus, FileDown } from "lucide-react";
@@ -14,10 +15,22 @@ const Index = () => {
   const [observations, setObservations] = useState([]);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [selectedObservation, setSelectedObservation] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    initializeStorage();
-    loadObservations();
+    async function init() {
+      try {
+        await initializeStorage();
+        await loadObservations();
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation:', error);
+        toast.error('Erreur lors du chargement des données');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    init();
     
     // Écouter les messages du service worker
     navigator.serviceWorker.addEventListener('message', (event) => {
@@ -43,9 +56,17 @@ const Index = () => {
     };
   }, []);
 
-  const loadObservations = () => {
-    const loadedObservations = getObservations();
-    setObservations(loadedObservations);
+  const loadObservations = async () => {
+    try {
+      setIsLoading(true);
+      const loadedObservations = await getObservations();
+      setObservations(loadedObservations);
+    } catch (error) {
+      console.error('Erreur lors du chargement des observations:', error);
+      toast.error('Erreur lors du chargement des observations');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleNewModalOpenChange = (open: boolean) => {
@@ -130,6 +151,7 @@ const Index = () => {
               onClick={handleExportCSV}
               variant="outline"
               className="text-sm h-9 gap-1"
+              disabled={isLoading}
             >
               <FileDown className="h-4 w-4" />
               <span className="hidden sm:inline">Exporter</span>
@@ -137,6 +159,7 @@ const Index = () => {
             <Button 
               onClick={() => setIsNewModalOpen(true)}
               className="text-sm h-9 gap-1"
+              disabled={isLoading}
             >
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Nouvelle observation</span>
@@ -148,10 +171,16 @@ const Index = () => {
       <main className="flex-1">
         <div className="container px-4 sm:px-6 lg:px-8 py-8">
           <div className="animate-fade-in">
-            <ObservationList 
-              observations={observations} 
-              onEdit={handleEditObservation}
-            />
+            {isLoading ? (
+              <div className="flex justify-center py-10">
+                <div className="animate-pulse text-muted-foreground">Chargement des observations...</div>
+              </div>
+            ) : (
+              <ObservationList 
+                observations={observations} 
+                onEdit={handleEditObservation}
+              />
+            )}
           </div>
         </div>
       </main>
