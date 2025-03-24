@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Plus, FileDown } from "lucide-react";
 import ObservationList from '@/components/ObservationList';
-import ObservationModal from '@/components/ObservationModal';
+import ObservationModal from '@/components/observation/ObservationModal';
 import SyncStatus from '@/components/SyncStatus';
 import InstallPWA from '@/components/InstallPWA';
 import { getObservations, initializeStorage, exportObservationsAsCSV, triggerSync } from '@/lib/storage';
